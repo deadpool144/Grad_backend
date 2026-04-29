@@ -1,0 +1,7 @@
+langchain-google-genai
+langchain-ollama
+pdfplumber
+python-docx
+pytesseract
+Pillow
+google-genai
