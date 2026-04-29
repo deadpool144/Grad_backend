@@ -27,6 +27,7 @@ export const updateProfile = async (userId, fields) => {
   const ALLOWED = [
     "firstName", "lastName", "headline", "bio", "location",
     "batch", "department", "website", "linkedIn", "skills",
+    "education", "experience",
   ];
   const update = {};
   ALLOWED.forEach((key) => { if (fields[key] !== undefined) update[key] = fields[key]; });
@@ -101,7 +102,7 @@ export const getDirectory = async (queryParams, currentUserId) => {
 
   const [users, total] = await Promise.all([
     User.find(filter)
-      .select("firstName lastName avatar headline batch department connections sentConnectionRequests")
+      .select("firstName lastName avatar headline batch department connections connectionRequests sentConnectionRequests")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -119,8 +120,8 @@ export const getConnectionStatus = async (viewerId, targetId) => {
   if (viewerId.toString() === targetId.toString()) return { status: "self" };
 
   const [viewer, target] = await Promise.all([
-    User.findById(viewerId).select("connections sentConnectionRequests").lean(),
-    User.findById(targetId).select("connections sentConnectionRequests").lean(),
+    User.findById(viewerId).select("connections connectionRequests sentConnectionRequests").lean(),
+    User.findById(targetId).select("connections connectionRequests sentConnectionRequests").lean(),
   ]);
   if (!target) throw new ApiError(404, "User not found.");
 
@@ -129,7 +130,7 @@ export const getConnectionStatus = async (viewerId, targetId) => {
 
   const connected  = viewer.connections.some((id) => id.toString() === targetIdStr);
   const sentByMe   = viewer.sentConnectionRequests?.some((id) => id.toString() === targetIdStr);
-  const sentToMe   = target.sentConnectionRequests?.some((id) => id.toString() === viewerIdStr);
+  const sentToMe   = viewer.connectionRequests?.some((id) => id.toString() === targetIdStr);
 
   if (connected)  return { status: "connected" };
   if (sentByMe)   return { status: "pending_sent" };
@@ -185,6 +186,14 @@ export const respondToConnection = async (userId, fromId, action, io) => {
     User.findByIdAndUpdate(fromId, { $pull: { sentConnectionRequests: userId } }),
   ]);
 
+  // Remove the connection request notification from the database
+  const { default: Notification } = await import("../../models/Notification.js");
+  await Notification.findOneAndDelete({
+    receiver: userId,
+    sender: fromId,
+    type: "connection_request"
+  });
+
   if (action === "accept") {
     await Promise.all([
       User.findByIdAndUpdate(userId, { $addToSet: { connections: fromId } }),
@@ -205,6 +214,14 @@ export const removeConnection = async (userId, targetId) => {
     User.findByIdAndUpdate(userId,   { $pull: { connections: targetId, sentConnectionRequests: targetId } }),
     User.findByIdAndUpdate(targetId, { $pull: { connections: userId,   sentConnectionRequests: userId   } }),
   ]);
+
+  const { default: Notification } = await import("../../models/Notification.js");
+  await Notification.deleteMany({
+    $or: [
+      { receiver: userId, sender: targetId, type: "connection_request" },
+      { receiver: targetId, sender: userId, type: "connection_request" }
+    ]
+  });
 };
 
 export const getConnections = async (userId) => {
@@ -213,6 +230,14 @@ export const getConnections = async (userId) => {
     .populate("connections", "firstName lastName avatar headline batch department");
   if (!user) throw new ApiError(404, "User not found.");
   return user.connections;
+};
+
+export const getPendingRequests = async (userId) => {
+  const user = await User.findById(userId)
+    .select("connectionRequests")
+    .populate("connectionRequests", "firstName lastName avatar headline batch department");
+  if (!user) throw new ApiError(404, "User not found.");
+  return user.connectionRequests;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -15,24 +15,39 @@ export const getFeed = async (userId, queryParams = {}) => {
   const me = await User.findById(userId).select("blockedUsers").lean();
   const blocked = me?.blockedUsers?.map(String) || [];
 
-  // One query — no joined aggregate needed. commentCount is stored on the doc.
-  const [posts, total] = await Promise.all([
-    Post.find({ author: { $nin: [userId, ...blocked] } })
-      .populate({
-        path:  "author",
-        select: "firstName lastName avatar headline",
-        match: { blockedUsers: { $ne: userId }, isVerified: true },
-      })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Post.countDocuments({ author: { $nin: [userId, ...blocked] } }),
-  ]);
+  const total = await Post.countDocuments();
+  
+  // To avoid MongoDB aggregation ObjectId casting issues with $match simply, 
+  // we can just use find() with a random skip.
+  const randomSkip = Math.floor(Math.random() * Math.max(0, total - limit));
+  
+  const posts = await Post.find()
+    .populate({
+      path:  "author",
+      select: "firstName lastName avatar headline",
+      match: { blockedUsers: { $ne: userId }, isVerified: true },
+    })
+    .skip(randomSkip)
+    .limit(limit)
+    .lean();
 
-  // Filter posts where populate found no author (blocked reverse)
   const filtered = posts.filter((p) => p.author !== null);
+  // To make it truly random on the UI, shuffle the returned batch
+  filtered.sort(() => Math.random() - 0.5);
+
   return paginateResult(filtered, total, page, limit);
+};
+
+export const getAllPosts = async (queryParams = {}) => {
+  const { page, limit, skip } = parsePage(queryParams, 20);
+  const total = await Post.countDocuments();
+  const posts = await Post.find()
+    .populate("author", "firstName lastName avatar headline")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+  return paginateResult(posts, total, page, limit);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +68,7 @@ export const createPost = async (userId, { content }, files = []) => {
   if (files.length > 5) throw new ApiError(400, "Maximum 5 files per post.");
 
   const media = await Promise.all(
-    files.map(async (f) => {
+    (files || []).map(async (f) => {
       const type   = f.mimetype.startsWith("video") ? "video" : "image";
       const result = await uploadBuffer(f.buffer, "posts", type);
       return { url: result.secure_url, publicId: result.public_id, type };
@@ -61,6 +76,41 @@ export const createPost = async (userId, { content }, files = []) => {
   );
 
   const post = await Post.create({ author: userId, content: content.trim(), media });
+  await post.populate("author", "firstName lastName avatar headline");
+  return post;
+};
+
+export const updatePost = async (postId, userId, { content, keptMedia }, files = []) => {
+  const post = await Post.findById(postId);
+  if (!post) throw new ApiError(404, "Post not found.");
+  if (post.author.toString() !== userId.toString()) throw new ApiError(403, "Not authorized to update this post.");
+  
+  if (content !== undefined) {
+    if (!content.trim()) throw new ApiError(400, "Post content cannot be empty.");
+    post.content = content.trim();
+  }
+
+  // Handle media update if keptMedia is provided
+  if (keptMedia) {
+    const kept = JSON.parse(keptMedia); // Assuming it comes as a JSON string from FormData
+    // Find media to delete from Cloudinary
+    const toDelete = post.media.filter(m => !kept.includes(m.url));
+    await Promise.allSettled(toDelete.map(m => m.publicId && deleteFile(m.publicId)));
+    
+    post.media = post.media.filter(m => kept.includes(m.url));
+  }
+  
+  const newMedia = await Promise.all(
+    (files || []).map(async (f) => {
+      const type = f.mimetype.startsWith("video") ? "video" : "image";
+      const result = await uploadBuffer(f.buffer, "posts", type);
+      return { url: result.secure_url, publicId: result.public_id, type };
+    })
+  );
+
+  if (newMedia.length > 0) post.media = [...post.media, ...newMedia];
+  
+  await post.save();
   await post.populate("author", "firstName lastName avatar headline");
   return post;
 };
@@ -142,6 +192,22 @@ export const getSavedPosts = async (userId, queryParams = {}) => {
       .limit(limit)
       .lean(),
     Post.countDocuments({ savedBy: userId }),
+  ]);
+
+  return paginateResult(posts, total, page, limit);
+};
+
+export const getUserPosts = async (targetUserId, queryParams = {}) => {
+  const { page, limit, skip } = parsePage(queryParams, 10);
+
+  const [posts, total] = await Promise.all([
+    Post.find({ author: targetUserId })
+      .populate("author", "firstName lastName avatar headline")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Post.countDocuments({ author: targetUserId }),
   ]);
 
   return paginateResult(posts, total, page, limit);

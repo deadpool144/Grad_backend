@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
 
     // ── Email verification ──────────────────────────────────────────────────
     isVerified:  { type: Boolean, default: false },
+    isBlocked:   { type: Boolean, default: false },
     otp:         { type: String, select: false },   // hidden by default
     otpExpires:  { type: Date,   select: false },
 
@@ -32,6 +33,29 @@ const userSchema = new mongoose.Schema(
     connectionRequests:    [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // incoming
     sentConnectionRequests:[{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // outgoing (NEW)
     blockedUsers:          [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
+    education: [
+      {
+        school: { type: String, required: true },
+        degree: String,
+        fieldOfStudy: String,
+        from: String,
+        to: String,
+        current: { type: Boolean, default: false },
+        description: String,
+      }
+    ],
+    experience: [
+      {
+        title: { type: String, required: true },
+        company: { type: String, required: true },
+        location: String,
+        from: String,
+        to: String,
+        current: { type: Boolean, default: false },
+        description: String,
+      }
+    ],
   },
   { timestamps: true }
 );

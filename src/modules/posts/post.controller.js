@@ -7,18 +7,28 @@ export const getFeed = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, result));
 });
 
+export const getAllPosts = asyncHandler(async (req, res) => {
+  const result = await postService.getAllPosts(req.query);
+  res.json(new ApiResponse(200, result));
+});
+
 export const getPostById = asyncHandler(async (req, res) => {
   const post = await postService.getPostById(req.params.id);
   res.json(new ApiResponse(200, post));
 });
 
 export const createPost = asyncHandler(async (req, res) => {
-  const post = await postService.createPost(req.userId, req.body, req.files || []);
-  res.status(201).json(new ApiResponse(201, post, "Post published."));
+  const post = await postService.createPost(req.userId, req.body, req.files);
+  res.status(201).json(new ApiResponse(201, post, "Post created."));
+});
+
+export const updatePost = asyncHandler(async (req, res) => {
+  const post = await postService.updatePost(req.params.id, req.userId, req.body, req.files);
+  res.json(new ApiResponse(200, post, "Post updated."));
 });
 
 export const deletePost = asyncHandler(async (req, res) => {
-  await postService.deletePost(req.params.id, req.userId);
+  await postService.deletePost(req.params.id, req.userId, req.user?.role === "admin");
   res.json(new ApiResponse(200, null, "Post deleted."));
 });
 
@@ -34,6 +44,11 @@ export const toggleSave = asyncHandler(async (req, res) => {
 
 export const getSavedPosts = asyncHandler(async (req, res) => {
   const result = await postService.getSavedPosts(req.userId, req.query);
+  res.json(new ApiResponse(200, result));
+});
+
+export const getUserPosts = asyncHandler(async (req, res) => {
+  const result = await postService.getUserPosts(req.params.id, req.query);
   res.json(new ApiResponse(200, result));
 });
 

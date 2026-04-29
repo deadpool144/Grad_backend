@@ -10,6 +10,7 @@ router.use(protect, loadUser, isAdmin);
 router.get("/stats",                 admin.getStats);
 router.get("/users",                 admin.getAllUsers);
 router.patch("/users/:id/role",      admin.updateUserRole);
+router.patch("/users/:id/toggle-block", admin.toggleBlockUser);
 router.delete("/users/:id",          admin.deleteAnyUser);
 router.delete("/posts/:id",          admin.deleteAnyPost);
 router.delete("/events/:id",         admin.deleteAnyEvent);

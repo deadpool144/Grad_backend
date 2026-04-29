@@ -10,6 +10,7 @@ import messageRoutes      from "./modules/messages/message.routes.js";
 import eventRoutes        from "./modules/events/event.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 import adminRoutes        from "./modules/admin/admin.routes.js";
+import aiRoutes           from "./modules/ai/ai.routes.js";
 
 import errorHandler       from "./middlewares/error.middleware.js";
 import { apiLimiter }     from "./middlewares/rateLimiter.middleware.js";
@@ -18,7 +19,7 @@ const app = express();
 
 // ── Core Middleware ───────────────────────────────────────────────────────────
 app.use(cors({
-  origin:      process.env.CLIENT_URL || "http://localhost:3000",
+  origin: (origin, callback) => callback(null, true),
   credentials: true,
 }));
 
@@ -45,6 +46,7 @@ app.use("/api/messages",      messageRoutes);
 app.use("/api/events",        eventRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin",         adminRoutes);
+app.use("/api/ai",            aiRoutes);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {

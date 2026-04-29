@@ -1,5 +1,10 @@
 import { Router } from "express";
-import * as post from "./post.controller.js";
+import { 
+  getFeed, getAllPosts, getSavedPosts, getUserPosts, getPostById, 
+  createPost, updatePost, deletePost, toggleLike, 
+  toggleSave, sharePost, getComments, addComment, 
+  deleteComment, toggleCommentLike 
+} from "./post.controller.js";
 import { protect } from "../../middlewares/auth.middleware.js";
 import { uploadMultiple } from "../../middlewares/upload.middleware.js";
 
@@ -8,23 +13,26 @@ const router = Router();
 router.use(protect);
 
 // Feed & saved
-router.get("/feed",  post.getFeed);
-router.get("/saved", post.getSavedPosts);
+router.get("/feed",  getFeed);
+router.get("/",     getAllPosts);
+router.get("/saved", getSavedPosts);
+router.get("/user/:id", getUserPosts);
 
 // Individual post
-router.get("/:id",          post.getPostById);
-router.post("/",            uploadMultiple, post.createPost);
-router.delete("/:id",       post.deletePost);
+router.get("/:id",          getPostById);
+router.post("/",            uploadMultiple, createPost);
+router.put("/:id",          uploadMultiple, updatePost);
+router.delete("/:id",       deletePost);
 
 // Engagement
-router.post("/:id/like",    post.toggleLike);
-router.post("/:id/save",    post.toggleSave);
-router.post("/:id/share",   post.sharePost);
+router.post("/:id/like",    toggleLike);
+router.post("/:id/save",    toggleSave);
+router.post("/:id/share",   sharePost);
 
 // Comments
-router.get("/:id/comments",                    post.getComments);
-router.post("/:id/comments",                   post.addComment);
-router.delete("/:id/comments/:commentId",      post.deleteComment);
-router.post("/:id/comments/:commentId/like",   post.toggleCommentLike);
+router.get("/:id/comments",                    getComments);
+router.post("/:id/comments",                   addComment);
+router.delete("/:id/comments/:commentId",      deleteComment);
+router.post("/:id/comments/:commentId/like",   toggleCommentLike);
 
 export default router;

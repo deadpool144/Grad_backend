@@ -22,6 +22,11 @@ export const deleteAnyUser = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, null, "User deleted."));
 });
 
+export const toggleBlockUser = asyncHandler(async (req, res) => {
+  const user = await adminService.toggleBlockUser(req.params.id, req.userId);
+  res.json(new ApiResponse(200, user, `User ${user.isBlocked ? "blocked" : "unblocked"}.`));
+});
+
 export const deleteAnyPost = asyncHandler(async (req, res) => {
   await adminService.deleteAnyPost(req.params.id, req.userId);
   res.json(new ApiResponse(200, null, "Post deleted."));

@@ -8,9 +8,11 @@ const router = Router();
 router.use(protect);
 
 // Search & discovery
-router.get("/search",      user.searchUsers);
-router.get("/directory",   user.getDirectory);
-router.get("/suggestions", user.getSuggestedUsers);
+router.get("/search",          user.searchUsers);
+router.get("/directory",       user.getDirectory);
+router.get("/suggestions",     user.getSuggestedUsers);
+router.get("/me/connections",  user.getConnections);  // current user's connections
+router.get("/me/requests",     user.getPendingRequests); // pending incoming requests
 
 // Profile (self or others)
 router.get("/:id",         user.getProfile);

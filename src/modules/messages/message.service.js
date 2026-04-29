@@ -34,17 +34,27 @@ export const accessDM = async (userId, targetId) => {
     target?.blockedUsers?.some((id) => id.toString() === userId.toString());
   if (blocked) throw new ApiError(403, "Cannot message a blocked user.");
 
-  // Find existing DM or create
-  let conv = await Conversation.findOneAndUpdate(
-    { isGroupChat: false, participants: { $all: [userId, targetId], $size: 2 } },
-    {},          // no-op update keeps it atomic without race
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  )
-    .populate("participants", "firstName lastName avatar headline")
+  let conv = await Conversation.findOne({
+    isGroupChat: false,
+    participants: { $all: [userId, targetId], $size: 2 }
+  }).populate("participants", "firstName lastName avatar headline")
     .populate({
-      path:     "lastMessage",
+      path: "lastMessage",
       populate: { path: "sender", select: "firstName lastName" },
     });
+
+  if (!conv) {
+    const newConv = await Conversation.create({
+      isGroupChat: false,
+      participants: [userId, targetId],
+    });
+    conv = await Conversation.findById(newConv._id)
+      .populate("participants", "firstName lastName avatar headline")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "firstName lastName" },
+      });
+  }
 
   return conv;
 };

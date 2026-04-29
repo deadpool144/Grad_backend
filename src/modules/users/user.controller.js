@@ -39,9 +39,14 @@ export const getConnectionStatus = asyncHandler(async (req, res) => {
 });
 
 export const getConnections = asyncHandler(async (req, res) => {
-  const targetId = req.params.id === "me" ? req.userId : req.params.id;
+  const targetId = !req.params.id || req.params.id === "me" ? req.userId : req.params.id;
   const connections = await userService.getConnections(targetId);
   res.json(new ApiResponse(200, connections));
+});
+
+export const getPendingRequests = asyncHandler(async (req, res) => {
+  const requests = await userService.getPendingRequests(req.userId);
+  res.json(new ApiResponse(200, requests));
 });
 
 export const sendConnectionRequest = asyncHandler(async (req, res) => {

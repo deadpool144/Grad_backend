@@ -59,5 +59,18 @@ export const deleteAnyUser = async (targetId, adminId) => {
   await User.findByIdAndDelete(targetId);
 };
 
+export const toggleBlockUser = async (targetId, adminId) => {
+  if (targetId.toString() === adminId.toString())
+    throw new ApiError(400, "Cannot block your own account.");
+
+  const user = await User.findById(targetId);
+  if (!user) throw new ApiError(404, "User not found.");
+
+  user.isBlocked = !user.isBlocked;
+  await user.save();
+
+  return user;
+};
+
 export const deleteAnyPost  = (postId,  adminId) => postService.deletePost(postId, adminId, true);
 export const deleteAnyEvent = (eventId, adminId) => eventService.deleteEvent(eventId, adminId, true);
