@@ -18,8 +18,21 @@ import { apiLimiter }     from "./middlewares/rateLimiter.middleware.js";
 const app = express();
 
 // ── Core Middleware ───────────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+].filter(Boolean);
+
 app.use(cors({
-  origin: (origin, callback) => callback(null, true),
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+      return callback(null, true);
+    }
+    return callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 }));
 

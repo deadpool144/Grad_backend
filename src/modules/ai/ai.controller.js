@@ -12,6 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const chat = asyncHandler(async (req, res) => {
+  if (process.env.ENABLE_AI === "false") {
+    return res.status(200).json(new ApiResponse(200, { response: "AI features are currently disabled in this environment." }, "AI Disabled"));
+  }
+
   const { message } = req.body;
 
   if (!message) {
@@ -110,6 +114,10 @@ export const chat = asyncHandler(async (req, res) => {
 });
 
 export const analyze = asyncHandler(async (req, res) => {
+  if (process.env.ENABLE_AI === "false") {
+    return res.status(200).json(new ApiResponse(200, { response: "AI Analysis is currently disabled in this environment." }, "AI Disabled"));
+  }
+
   const { message } = req.body;
   const file = req.file;
 
