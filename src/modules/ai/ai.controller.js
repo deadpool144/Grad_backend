@@ -24,7 +24,7 @@ export const chat = asyncHandler(async (req, res) => {
 
   const scriptPath = path.resolve(
     __dirname,
-    "../../../../ai_integration/chatmodel.py"
+    "../../ai_integration/chatmodel.py"
   );
 
   const pythonCmd = process.platform === "win32" ? "py" : "python";
@@ -34,6 +34,7 @@ export const chat = asyncHandler(async (req, res) => {
 
   const pythonProcess = spawn(pythonCmd, [scriptPath], {
     shell: true,
+    env: { ...process.env, GOOGLE_API_KEY: process.env.GOOGLE_API_KEY }
   });
 
   let result = "";
@@ -139,12 +140,15 @@ export const analyze = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Nothing to analyze. Provide text or a file.");
   }
 
-  const scriptPath = path.resolve(__dirname, "../../../../ai_integration/chatmodel.py");
+  const scriptPath = path.resolve(__dirname, "../../ai_integration/chatmodel.py");
   const pythonCmd = process.platform === "win32" ? "py" : "python";
 
   console.log(`[AI-Analyze] Starting process for: ${file ? file.originalname : "Text Only"}`);
   
-  const pythonProcess = spawn(pythonCmd, [scriptPath], { shell: true });
+  const pythonProcess = spawn(pythonCmd, [scriptPath], { 
+    shell: true,
+    env: { ...process.env, GOOGLE_API_KEY: process.env.GOOGLE_API_KEY }
+  });
 
   let result = "";
   let error = "";
