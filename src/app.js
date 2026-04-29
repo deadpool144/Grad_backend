@@ -22,15 +22,18 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
   "http://127.0.0.1:3000"
-].filter(Boolean);
+].filter(Boolean).map(origin => origin.replace(/\/$/, "")); // Remove trailing slashes
 
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
+    
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (allowedOrigins.includes(normalizedOrigin) || process.env.NODE_ENV !== "production") {
       return callback(null, true);
     }
+    
+    console.error(`[CORS Blocked] Origin: ${origin}, Allowed: ${allowedOrigins.join(", ")}`);
     return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
