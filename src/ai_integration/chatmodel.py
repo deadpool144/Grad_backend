@@ -64,7 +64,7 @@ def get_llm(is_detailed=False):
     api_key = os.environ.get("GOOGLE_API_KEY")
     if api_key and api_key != "your_api_key_here":
         return ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-flash-latest",
             google_api_key=api_key,
             temperature=0.2 if is_detailed else 0.8,
             max_output_tokens=768 if is_detailed else 256,
@@ -136,7 +136,10 @@ if __name__ == "__main__":
             ])
             response_text = response.content
 
-        print(json.dumps({"response": response_text.strip()}), flush=True)
+        if isinstance(response_text, list):
+            response_text = "".join([str(part.get("text", part)) if isinstance(part, dict) else str(part) for part in response_text])
+            
+        print(json.dumps({"response": str(response_text).strip()}), flush=True)
 
     except Exception as e:
         print(json.dumps({"error": str(e)}), flush=True)
