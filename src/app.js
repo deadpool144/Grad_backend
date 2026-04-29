@@ -17,6 +17,9 @@ import { apiLimiter }     from "./middlewares/rateLimiter.middleware.js";
 
 const app = express();
 
+// Trust proxy for secure cookies in production (Render/Vercel)
+app.set("trust proxy", 1);
+
 // ── Core Middleware ───────────────────────────────────────────────────────────
 const allowedOrigins = [
   process.env.CLIENT_URL,
