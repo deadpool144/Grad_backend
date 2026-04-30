@@ -64,7 +64,7 @@ def get_llm(is_detailed=False):
     api_key = os.environ.get("GOOGLE_API_KEY")
     if api_key and api_key != "your_api_key_here":
         return ChatGoogleGenerativeAI(
-            model="gemini-flash-latest",
+            model="gemini-2.5-flash",
             google_api_key=api_key,
             temperature=0.2 if is_detailed else 0.8,
             max_output_tokens=768 if is_detailed else 256,
