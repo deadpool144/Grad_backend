@@ -6,7 +6,6 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
-import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +21,7 @@ const getPythonCmd = () => {
   if (fs.existsSync(winVenv)) {
     return winVenv;
   }
-  return process.platform === "win32" ? "py" : "python3";
+  return process.platform === "win32" ? "py" : "python";
 };
 
 export const chat = asyncHandler(async (req, res) => {
@@ -106,10 +105,10 @@ export const chat = asyncHandler(async (req, res) => {
         console.error("[AI] No JSON found in:", result);
         throw new Error("No JSON found");
       }
-      
+
       const jsonStr = result.substring(start, end + 1);
       const parsed = JSON.parse(jsonStr);
-      
+
       if (parsed.error) {
         return res.status(500).json(new ApiResponse(500, null, parsed.error));
       }
@@ -141,31 +140,30 @@ export const analyze = asyncHandler(async (req, res) => {
   const { message } = req.body;
   const file = req.file;
 
-  // If no file, reject early — do NOT fall through to RAG chat (heavy memory usage)
-  if (!file) {
-    return res.status(400).json(new ApiResponse(400, null, "Please upload a resume file (PDF or DOCX) to analyze."));
-  }
-
   let tempPath = null;
-  let combinedPrompt;
+  let combinedPrompt = message || "Please analyze this content.";
 
-  // Use OS temp dir to ensure write access on any platform (Render/local/Docker)
-  const tempDir = path.join(os.tmpdir(), "alumni-connect-uploads");
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+  if (file) {
+    const tempDir = path.join(__dirname, "../../../../uploads/temp");
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-  tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
-  fs.writeFileSync(tempPath, file.buffer);
+    tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
+    fs.writeFileSync(tempPath, file.buffer);
 
-  // Use the Python extraction protocol
-  combinedPrompt = `FILE_PATH:${tempPath}|||${message || "Analyze this document."}`;
+    // Use the Python extraction protocol
+    combinedPrompt = `FILE_PATH:${tempPath}|||${message || "Analyze this document."}`;
+  } else if (message) {
+    combinedPrompt = message;
+  } else {
+    throw new ApiError(400, "Nothing to analyze. Provide text or a file.");
+  }
 
   const scriptPath = path.resolve(__dirname, "../../ai_integration/chatmodel.py");
   const pythonCmd = getPythonCmd();
 
-  console.log(`[AI-Analyze] Starting process for: ${file.originalname}`);
-  console.log(`[AI-Analyze] Temp file written to: ${tempPath}`);
-  
-  const pythonProcess = spawn(pythonCmd, [scriptPath], { 
+  console.log(`[AI-Analyze] Starting process for: ${file ? file.originalname : "Text Only"}`);
+
+  const pythonProcess = spawn(pythonCmd, [scriptPath], {
     shell: false,
     env: { ...process.env, GOOGLE_API_KEY: process.env.GOOGLE_API_KEY }
   });
@@ -174,7 +172,7 @@ export const analyze = asyncHandler(async (req, res) => {
   let error = "";
   let responseSent = false;
 
-  // Send history + message via stdin
+  // Send context (history) + message via stdin
   let history = req.body.history || [];
   if (typeof history === 'string') {
     try { history = JSON.parse(history); } catch (e) { history = []; }
@@ -186,28 +184,25 @@ export const analyze = asyncHandler(async (req, res) => {
   pythonProcess.stdin.end();
 
   pythonProcess.stdout.on("data", (data) => { result += data.toString(); });
-  pythonProcess.stderr.on("data", (data) => {
-    error += data.toString();
-    console.error(`[AI-Analyze Python Error]: ${data}`);
-  });
+  pythonProcess.stderr.on("data", (data) => { error += data.toString(); });
 
-  const timeout = setTimeout(() => { 
+  const timeout = setTimeout(() => {
     console.warn("[AI-Analyze] Process timed out after 180s");
-    pythonProcess.kill(); 
+    pythonProcess.kill();
   }, 180000);
 
   pythonProcess.on("close", (code) => {
     clearTimeout(timeout);
     if (responseSent) return;
     responseSent = true;
-    
+
     // Cleanup temp file
     if (tempPath && fs.existsSync(tempPath)) {
       try { fs.unlinkSync(tempPath); } catch (e) { console.error("Temp cleanup error:", e); }
     }
 
     if (code !== 0 && code !== null) {
-      console.error(`[AI-Analyze] Error Code ${code}. Error Output: ${error}`);
+      console.error(`[AI-Analyze] Error Code ${code}:`, error);
       return res.status(500).json(new ApiResponse(500, null, error || "Trouble Encountered"));
     }
 

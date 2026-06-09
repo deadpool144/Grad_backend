@@ -2,8 +2,10 @@ langchain-google-genai
 langchain-core
 langchain-text-splitters
 langchain-community
+sentence-transformers
 faiss-cpu
 pdfplumber
 python-docx
 pytesseract
 Pillow
+google-genai

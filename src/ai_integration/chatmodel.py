@@ -92,24 +92,14 @@ if __name__ == "__main__":
             print(json.dumps({"response": "Hello! I'm your Alumni Connect AI. How can I help you with your career today?"}), flush=True)
             sys.exit(0)
 
-        # Debug logging to stderr to trace execution on Render
-        sys.stderr.write(f"[ChatModel] Parsed file_path: '{file_path}'\n")
-        sys.stderr.write(f"[ChatModel] File exists on disk: {os.path.exists(file_path) if file_path else False}\n")
-        sys.stderr.write(f"[ChatModel] GOOGLE_API_KEY length: {len(os.getenv('GOOGLE_API_KEY') or '')}\n")
-        sys.stderr.write(f"[ChatModel] GEMINI_API_KEY length: {len(os.getenv('GEMINI_API_KEY') or '')}\n")
-        sys.stderr.write(f"[ChatModel] config.MODEL_NAME: '{config.MODEL_NAME}'\n")
-
         # SCENARIO 1: Resume File Analysis
         if file_path and os.path.exists(file_path):
-            sys.stderr.write("[ChatModel] Entering Scenario 1: Resume File Analysis\n")
             file_content = extract_text(file_path)
-            sys.stderr.write(f"[ChatModel] Extracted text length: {len(file_content)}\n")
             raw_response = agent.analyze_resume(file_content, user_message)
             formatted_response = format_for_frontend(raw_response)
             
         # SCENARIO 2: Chat with RAG / general career Q&A
         else:
-            sys.stderr.write("[ChatModel] Entering Scenario 2: Chat with RAG / general career Q&A\n")
             # Check cache to save API requests and time
             from cache_manager import get_cached_response, set_cached_response
             cached = get_cached_response(user_message)
@@ -162,5 +152,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         sys.stdout = original_stdout
-        sys.stderr.write(f"[ChatModel Exception]: {e}\n")
         print(json.dumps({"error": str(e)}), flush=True)

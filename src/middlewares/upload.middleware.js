@@ -5,7 +5,6 @@ const ALLOWED_MIME = [
   "image/jpeg", "image/png", "image/gif", "image/webp",
   "video/mp4", "video/webm", "video/quicktime",
   "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
 ];
 
 const fileFilter = (req, file, cb) => {
@@ -22,6 +21,6 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
 });
 
-export const uploadSingle   = upload.single("file");
+export const uploadSingle = upload.single("file");
 export const uploadMultiple = upload.array("files", 5);
-export const uploadAny      = upload.any();
+export const uploadAny = upload.any();
