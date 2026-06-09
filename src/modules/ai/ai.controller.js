@@ -144,7 +144,7 @@ export const analyze = asyncHandler(async (req, res) => {
   let combinedPrompt = message || "Please analyze this content.";
 
   if (file) {
-    const tempDir = path.join(__dirname, "../../../../uploads/temp");
+    const tempDir = path.resolve(__dirname, "../../../uploads/temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
     
     tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
