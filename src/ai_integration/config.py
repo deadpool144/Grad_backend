@@ -16,10 +16,11 @@ else:
 # Read key values (supports both GOOGLE_API_KEY and GEMINI_API_KEY)
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
-# Ensure it is set in environment for integration defaults
+# Ensure only GOOGLE_API_KEY is set in environment for integration library
 if GEMINI_API_KEY:
     os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
-    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+    if "GEMINI_API_KEY" in os.environ:
+        del os.environ["GEMINI_API_KEY"]
 
 # Model Configurations
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
