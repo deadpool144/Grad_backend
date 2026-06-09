@@ -6,6 +6,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
+import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,7 +22,7 @@ const getPythonCmd = () => {
   if (fs.existsSync(winVenv)) {
     return winVenv;
   }
-  return process.platform === "win32" ? "py" : "python";
+  return process.platform === "win32" ? "py" : "python3";
 };
 
 export const chat = asyncHandler(async (req, res) => {
@@ -140,23 +141,22 @@ export const analyze = asyncHandler(async (req, res) => {
   const { message } = req.body;
   const file = req.file;
 
-  let tempPath = null;
-  let combinedPrompt = message || "Please analyze this content.";
-
-  if (file) {
-    const tempDir = path.join(__dirname, "../../../../uploads/temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-    tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
-    fs.writeFileSync(tempPath, file.buffer);
-
-    // Use the Python extraction protocol
-    combinedPrompt = `FILE_PATH:${tempPath}|||${message || "Analyze this document."}`;
-  } else if (message) {
-    combinedPrompt = message;
-  } else {
-    throw new ApiError(400, "Nothing to analyze. Provide text or a file.");
+  // Reject early if no file — avoids RAG/embedding path which OOMs on Render free tier
+  if (!file) {
+    return res.status(400).json(new ApiResponse(400, null, "Please upload a resume file (PDF or DOCX) to analyze."));
   }
+
+  let tempPath = null;
+
+  // Use OS temp dir — guaranteed writable on all platforms (Render, Docker, Windows)
+  const tempDir = path.join(os.tmpdir(), "alumni-connect-uploads");
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+  tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
+  fs.writeFileSync(tempPath, file.buffer);
+
+  // Build prompt using the Python extraction protocol
+  const combinedPrompt = `FILE_PATH:${tempPath}|||${message || "Analyze this document."}`;
 
   const scriptPath = path.resolve(__dirname, "../../ai_integration/chatmodel.py");
   const pythonCmd = getPythonCmd();
@@ -183,8 +183,14 @@ export const analyze = asyncHandler(async (req, res) => {
   pythonProcess.stdin.write(fullPrompt);
   pythonProcess.stdin.end();
 
-  pythonProcess.stdout.on("data", (data) => { result += data.toString(); });
-  pythonProcess.stderr.on("data", (data) => { error += data.toString(); });
+  pythonProcess.stdout.on("data", (data) => {
+    result += data.toString();
+  });
+
+  pythonProcess.stderr.on("data", (data) => {
+    error += data.toString();
+    console.error(`[AI-Analyze] Python Error: ${data}`);
+  });
 
   const timeout = setTimeout(() => {
     console.warn("[AI-Analyze] Process timed out after 180s");

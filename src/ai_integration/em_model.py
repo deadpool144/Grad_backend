@@ -14,7 +14,7 @@ class SafeGoogleGenerativeAIEmbeddings(GoogleGenerativeAIEmbeddings):
     """
     def embed_query_with_retry(self, text: str, max_retries: int = 5) -> list[float]:
         if not text or not text.strip():
-            # Return empty embedding of expected dimension (768 for models/embedding-001)
+            # Return empty embedding of expected dimension (768 for models/text-embedding-004)
             return [0.0] * 768
             
         for attempt in range(max_retries):
@@ -36,31 +36,20 @@ class SafeGoogleGenerativeAIEmbeddings(GoogleGenerativeAIEmbeddings):
 
 def embeddings_model():
     """
-    Returns the configured SafeGoogleGenerativeAIEmbeddings model.
-    If configured to use local embeddings, or if the API Key is invalid,
-    falls back to local HuggingFace embeddings.
+    Returns Google Gemini API embeddings. No local model loading — safe for low-RAM environments.
+    Raises an error if the API key is missing or invalid.
     """
-    if getattr(config, "USE_LOCAL_EMBEDDINGS", False):
-        # Directly use local HuggingFace embeddings to save Google API quota
-        print("[Embeddings] Using local HuggingFaceEmbeddings (all-MiniLM-L6-v2) to save Gemini API quota.", file=sys.stderr)
-        from langchain_community.embeddings import HuggingFaceEmbeddings
-        return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
+    # DO NOT fall back to HuggingFace/sentence-transformers.
+    # Loading PyTorch on Render's 512MB free tier causes OOM kill.
     api_key = config.GEMINI_API_KEY
-    if api_key and api_key != "your_api_key_here" and api_key.strip() != "":
-        try:
-            # Attempt to initialize and validate Google Generative AI Embeddings
-            embeddings = SafeGoogleGenerativeAIEmbeddings(
-                model=config.EMBEDDING_MODEL,
-                google_api_key=api_key
-            )
-            # Validate API key with a test embedding call
-            embeddings.embed_query("test")
-            return embeddings
-        except Exception as e:
-            print(f"[Embeddings] Warning: Google embeddings validation failed (key may be invalid/expired): {e}", file=sys.stderr)
-            
-    # Fallback to local HuggingFace embeddings
-    print("[Embeddings] Falling back to local HuggingFaceEmbeddings (all-MiniLM-L6-v2)...", file=sys.stderr)
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    if not api_key or api_key.strip() == "" or api_key == "your_api_key_here":
+        raise ValueError(
+            "[Embeddings] GOOGLE_API_KEY is missing. "
+            "Add it to your .env file or Render environment variables."
+        )
+
+    print(f"[Embeddings] Using Google Gemini Embeddings: {config.EMBEDDING_MODEL}", file=sys.stderr)
+    return SafeGoogleGenerativeAIEmbeddings(
+        model=config.EMBEDDING_MODEL,
+        google_api_key=api_key
+    )
