@@ -6,10 +6,23 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
-import * as aiService from "./ai.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Resolves python executable path, prioritizes local virtual environment if it exists
+const getPythonCmd = () => {
+  const unixVenv = path.resolve(__dirname, "../../../venv/bin/python");
+  const winVenv = path.resolve(__dirname, "../../../venv/Scripts/python.exe");
+
+  if (fs.existsSync(unixVenv)) {
+    return unixVenv;
+  }
+  if (fs.existsSync(winVenv)) {
+    return winVenv;
+  }
+  return process.platform === "win32" ? "py" : "python";
+};
 
 export const chat = asyncHandler(async (req, res) => {
   if (process.env.ENABLE_AI === "false") {
@@ -27,18 +40,19 @@ export const chat = asyncHandler(async (req, res) => {
     "../../ai_integration/chatmodel.py"
   );
 
-  const pythonCmd = process.platform === "win32" ? "py" : "python";
+  const pythonCmd = getPythonCmd();
 
   console.log(`[AI] Starting process: ${pythonCmd} ${scriptPath}`);
   console.log(`[AI] Message length: ${message.length}`);
 
   const pythonProcess = spawn(pythonCmd, [scriptPath], {
-    shell: true,
+    shell: false,
     env: { ...process.env, GOOGLE_API_KEY: process.env.GOOGLE_API_KEY }
   });
 
   let result = "";
   let error = "";
+  let responseSent = false;
 
   // Send message via stdin with history context
   let history = req.body.history || [];
@@ -69,6 +83,8 @@ export const chat = asyncHandler(async (req, res) => {
 
   pythonProcess.on("close", (code) => {
     clearTimeout(timeout);
+    if (responseSent) return;
+    responseSent = true;
 
     if (code !== 0 && code !== null) {
       console.error(`[AI] Process exited with code ${code}. Error: ${error}`);
@@ -107,6 +123,8 @@ export const chat = asyncHandler(async (req, res) => {
   });
 
   pythonProcess.on("error", (err) => {
+    if (responseSent) return;
+    responseSent = true;
     console.error("[AI] Spawn Error:", err);
     return res.status(500).json(
       new ApiResponse(500, null, `Failed to start AI process: ${err.message}`)
@@ -141,17 +159,18 @@ export const analyze = asyncHandler(async (req, res) => {
   }
 
   const scriptPath = path.resolve(__dirname, "../../ai_integration/chatmodel.py");
-  const pythonCmd = process.platform === "win32" ? "py" : "python";
+  const pythonCmd = getPythonCmd();
 
   console.log(`[AI-Analyze] Starting process for: ${file ? file.originalname : "Text Only"}`);
   
   const pythonProcess = spawn(pythonCmd, [scriptPath], { 
-    shell: true,
+    shell: false,
     env: { ...process.env, GOOGLE_API_KEY: process.env.GOOGLE_API_KEY }
   });
 
   let result = "";
   let error = "";
+  let responseSent = false;
 
   // Send context (history) + message via stdin
   let history = req.body.history || [];
@@ -174,6 +193,8 @@ export const analyze = asyncHandler(async (req, res) => {
 
   pythonProcess.on("close", (code) => {
     clearTimeout(timeout);
+    if (responseSent) return;
+    responseSent = true;
     
     // Cleanup temp file
     if (tempPath && fs.existsSync(tempPath)) {
@@ -209,5 +230,14 @@ export const analyze = asyncHandler(async (req, res) => {
       console.error("[AI-Analyze] Fallback triggered. Error:", e.message);
       return res.json(new ApiResponse(200, { response: result.trim() }, "Analysis complete (fallback)"));
     }
+  });
+
+  pythonProcess.on("error", (err) => {
+    if (responseSent) return;
+    responseSent = true;
+    console.error("[AI] Spawn Error:", err);
+    return res.status(500).json(
+      new ApiResponse(500, null, `Failed to start AI process: ${err.message}`)
+    );
   });
 });

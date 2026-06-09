@@ -33,3 +33,14 @@ build/
 .cache/
 temp/
 tmp/
+
+# SQLite Cache
+*.db
+*.sqlite
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+
