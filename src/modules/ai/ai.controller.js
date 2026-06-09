@@ -21,7 +21,7 @@ const getPythonCmd = () => {
   if (fs.existsSync(winVenv)) {
     return winVenv;
   }
-  return process.platform === "win32" ? "py" : "python";
+  return process.platform === "win32" ? "py" : "python3";
 };
 
 export const chat = asyncHandler(async (req, res) => {
@@ -184,7 +184,10 @@ export const analyze = asyncHandler(async (req, res) => {
   pythonProcess.stdin.end();
 
   pythonProcess.stdout.on("data", (data) => { result += data.toString(); });
-  pythonProcess.stderr.on("data", (data) => { error += data.toString(); });
+  pythonProcess.stderr.on("data", (data) => {
+    error += data.toString();
+    console.error(`[AI-Analyze Python Error]: ${data}`);
+  });
 
   const timeout = setTimeout(() => { 
     console.warn("[AI-Analyze] Process timed out after 180s");
@@ -202,7 +205,7 @@ export const analyze = asyncHandler(async (req, res) => {
     }
 
     if (code !== 0 && code !== null) {
-      console.error(`[AI-Analyze] Error Code ${code}:`, error);
+      console.error(`[AI-Analyze] Error Code ${code}. Error Output: ${error}`);
       return res.status(500).json(new ApiResponse(500, null, error || "Trouble Encountered"));
     }
 
