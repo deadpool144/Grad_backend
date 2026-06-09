@@ -94,8 +94,10 @@ if __name__ == "__main__":
 
         # Debug logging to stderr to trace execution on Render
         sys.stderr.write(f"[ChatModel] Parsed file_path: '{file_path}'\n")
-        if file_path:
-            sys.stderr.write(f"[ChatModel] File exists on disk: {os.path.exists(file_path)}\n")
+        sys.stderr.write(f"[ChatModel] File exists on disk: {os.path.exists(file_path) if file_path else False}\n")
+        sys.stderr.write(f"[ChatModel] GOOGLE_API_KEY length: {len(os.getenv('GOOGLE_API_KEY') or '')}\n")
+        sys.stderr.write(f"[ChatModel] GEMINI_API_KEY length: {len(os.getenv('GEMINI_API_KEY') or '')}\n")
+        sys.stderr.write(f"[ChatModel] config.MODEL_NAME: '{config.MODEL_NAME}'\n")
 
         # SCENARIO 1: Resume File Analysis
         if file_path and os.path.exists(file_path):
@@ -160,4 +162,5 @@ if __name__ == "__main__":
 
     except Exception as e:
         sys.stdout = original_stdout
+        sys.stderr.write(f"[ChatModel Exception]: {e}\n")
         print(json.dumps({"error": str(e)}), flush=True)

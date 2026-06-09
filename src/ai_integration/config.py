@@ -22,8 +22,8 @@ if GEMINI_API_KEY:
     os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 
 # Model Configurations
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/embedding-001")
 
 # Set to True to use local HuggingFace embeddings instead of Google API embeddings (saves Gemini API quota)
 USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "true").lower() == "true"
