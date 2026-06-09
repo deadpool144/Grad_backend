@@ -23,6 +23,7 @@ app.set("trust proxy", 1);
 // ── Core Middleware ───────────────────────────────────────────────────────────
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  "https://grad-link-five.vercel.app", // Hard-coded production frontend URL
   "http://localhost:3000",
   "http://127.0.0.1:3000"
 ].filter(Boolean).map(origin => origin.replace(/\/$/, "")); // Remove trailing slashes

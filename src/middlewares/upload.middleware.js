@@ -5,6 +5,7 @@ const ALLOWED_MIME = [
   "image/jpeg", "image/png", "image/gif", "image/webp",
   "video/mp4", "video/webm", "video/quicktime",
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
 ];
 
 const fileFilter = (req, file, cb) => {

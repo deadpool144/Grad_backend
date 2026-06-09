@@ -6,6 +6,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
+import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -140,28 +141,29 @@ export const analyze = asyncHandler(async (req, res) => {
   const { message } = req.body;
   const file = req.file;
 
-  let tempPath = null;
-  let combinedPrompt = message || "Please analyze this content.";
-
-  if (file) {
-    const tempDir = path.resolve(__dirname, "../../../uploads/temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-    
-    tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
-    fs.writeFileSync(tempPath, file.buffer);
-    
-    // Use the Python extraction protocol
-    combinedPrompt = `FILE_PATH:${tempPath}|||${message || "Analyze this document."}`;
-  } else if (message) {
-    combinedPrompt = message;
-  } else {
-    throw new ApiError(400, "Nothing to analyze. Provide text or a file.");
+  // If no file, reject early — do NOT fall through to RAG chat (heavy memory usage)
+  if (!file) {
+    return res.status(400).json(new ApiResponse(400, null, "Please upload a resume file (PDF or DOCX) to analyze."));
   }
+
+  let tempPath = null;
+  let combinedPrompt;
+
+  // Use OS temp dir to ensure write access on any platform (Render/local/Docker)
+  const tempDir = path.join(os.tmpdir(), "alumni-connect-uploads");
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+  tempPath = path.join(tempDir, `${uuidv4()}_${file.originalname}`);
+  fs.writeFileSync(tempPath, file.buffer);
+
+  // Use the Python extraction protocol
+  combinedPrompt = `FILE_PATH:${tempPath}|||${message || "Analyze this document."}`;
 
   const scriptPath = path.resolve(__dirname, "../../ai_integration/chatmodel.py");
   const pythonCmd = getPythonCmd();
 
-  console.log(`[AI-Analyze] Starting process for: ${file ? file.originalname : "Text Only"}`);
+  console.log(`[AI-Analyze] Starting process for: ${file.originalname}`);
+  console.log(`[AI-Analyze] Temp file written to: ${tempPath}`);
   
   const pythonProcess = spawn(pythonCmd, [scriptPath], { 
     shell: false,
@@ -172,7 +174,7 @@ export const analyze = asyncHandler(async (req, res) => {
   let error = "";
   let responseSent = false;
 
-  // Send context (history) + message via stdin
+  // Send history + message via stdin
   let history = req.body.history || [];
   if (typeof history === 'string') {
     try { history = JSON.parse(history); } catch (e) { history = []; }
